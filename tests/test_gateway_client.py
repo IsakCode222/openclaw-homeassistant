@@ -41,6 +41,15 @@ AgentRun = _gateway_client.AgentRun
 OpenClawGatewayClient = _gateway_client.OpenClawGatewayClient
 
 
+async def _wait_for_run(client: OpenClawGatewayClient, run_id: str = "run-1") -> None:
+    """Spin until the agent run tracker appears."""
+    for _ in range(50):
+        if run_id in client._agent_runs:
+            return
+        await asyncio.sleep(0)
+    raise AssertionError(f"{run_id} not found in _agent_runs")
+
+
 class TestAgentRun:
     def test_add_output_cumulative(self) -> None:
         run = AgentRun("run-1")
@@ -134,11 +143,7 @@ class TestSendAgentRequest:
             client.send_agent_request("hello", idempotency_key="fixed")
         )
 
-        for _ in range(50):
-            if "run-1" in client._agent_runs:
-                break
-            await asyncio.sleep(0)
-        assert "run-1" in client._agent_runs
+        await _wait_for_run(client)
 
         client._handle_agent_event(
             {"payload": {"runId": "run-1", "output": "Hi there"}}
@@ -168,11 +173,7 @@ class TestSendAgentRequest:
 
         task = asyncio.create_task(client.send_agent_request("hello"))
 
-        for _ in range(50):
-            if "run-1" in client._agent_runs:
-                break
-            await asyncio.sleep(0)
-        assert "run-1" in client._agent_runs
+        await _wait_for_run(client)
 
         client._handle_agent_event(
             {"payload": {"runId": "run-1", "status": "ok", "summary": "done"}}
@@ -192,11 +193,7 @@ class TestSendAgentRequest:
 
         task = asyncio.create_task(client.send_agent_request("hello"))
 
-        for _ in range(50):
-            if "run-1" in client._agent_runs:
-                break
-            await asyncio.sleep(0)
-        assert "run-1" in client._agent_runs
+        await _wait_for_run(client)
 
         client._handle_agent_event(
             {"payload": {"runId": "run-1", "status": "ok", "summary": "done"}}
@@ -216,11 +213,7 @@ class TestSendAgentRequest:
 
         task = asyncio.create_task(client.send_agent_request("hello"))
 
-        for _ in range(50):
-            if "run-1" in client._agent_runs:
-                break
-            await asyncio.sleep(0)
-        assert "run-1" in client._agent_runs
+        await _wait_for_run(client)
 
         client._handle_agent_event(
             {"payload": {"runId": "run-1", "status": "ok", "summary": "done"}}
@@ -248,11 +241,7 @@ class TestSendAgentRequest:
 
         task = asyncio.create_task(client.send_agent_request("hello"))
 
-        for _ in range(50):
-            if "run-1" in client._agent_runs:
-                break
-            await asyncio.sleep(0)
-        assert "run-1" in client._agent_runs
+        await _wait_for_run(client)
 
         client._handle_agent_event(
             {"payload": {"runId": "run-1", "status": "ok", "summary": "done"}}
@@ -275,11 +264,7 @@ class TestSendAgentRequest:
 
         task = asyncio.create_task(client.send_agent_request("hello"))
 
-        for _ in range(50):
-            if "run-1" in client._agent_runs:
-                break
-            await asyncio.sleep(0)
-        assert "run-1" in client._agent_runs
+        await _wait_for_run(client)
 
         client._handle_agent_event(
             {
@@ -329,11 +314,7 @@ class TestStreamAgentRequest:
 
         task = asyncio.create_task(consume())
 
-        for _ in range(50):
-            if "run-1" in client._agent_runs:
-                break
-            await asyncio.sleep(0)
-        assert "run-1" in client._agent_runs
+        await _wait_for_run(client)
 
         client._handle_agent_event(
             {"payload": {"runId": "run-1", "output": "Hi"}}
@@ -369,11 +350,7 @@ class TestStreamAgentRequest:
 
         task = asyncio.create_task(consume())
 
-        for _ in range(50):
-            if "run-1" in client._agent_runs:
-                break
-            await asyncio.sleep(0)
-        assert "run-1" in client._agent_runs
+        await _wait_for_run(client)
 
         client._handle_agent_event(
             {"payload": {"runId": "run-1", "output": "done"}}
@@ -409,11 +386,7 @@ class TestStreamAgentRequest:
 
         task = asyncio.create_task(consume())
 
-        for _ in range(50):
-            if "run-1" in client._agent_runs:
-                break
-            await asyncio.sleep(0)
-        assert "run-1" in client._agent_runs
+        await _wait_for_run(client)
 
         client._handle_agent_event(
             {"payload": {"runId": "run-1", "output": "done"}}

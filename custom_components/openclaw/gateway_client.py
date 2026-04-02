@@ -214,6 +214,46 @@ class OpenClawGatewayClient:
         """Set the configured thinking mode override."""
         self._thinking = thinking
 
+    @property
+    def _effective_session_key(self) -> str:
+        """Build the session key, prefixed with agent ID when configured."""
+        if self._agent_id:
+            return f"agent:{self._agent_id}:{self._session_key}"
+        return self._session_key
+
+    async def _start_agent_run(
+        self, message: str, idempotency_key: str, *, stream: bool = False
+    ) -> AgentRun:
+        """Send the agent request and return a tracked AgentRun."""
+        options: dict[str, Any] = {}
+        if self._model:
+            options["model"] = self._model
+        if self._thinking:
+            options["thinking"] = self._thinking
+
+        response = await self._gateway.send_request(
+            method="agent",
+            params={
+                "message": message,
+                "sessionKey": self._effective_session_key,
+                "idempotencyKey": idempotency_key,
+                **options,
+            },
+            timeout=10.0,
+        )
+
+        payload = response.get("payload", {})
+        run_id = payload.get("runId")
+
+        if not run_id:
+            raise AgentExecutionError("No runId in agent response")
+
+        _LOGGER.debug("Agent run started: %s", run_id)
+
+        agent_run = AgentRun(run_id, stream=stream)
+        self._agent_runs[run_id] = agent_run
+        return agent_run
+
     async def send_agent_request(
         self, message: str, idempotency_key: str | None = None
     ) -> str:
@@ -238,45 +278,11 @@ class OpenClawGatewayClient:
 
         _LOGGER.debug("Sending agent request with key: %s", idempotency_key)
 
-        # Send agent request
         try:
-            options: dict[str, Any] = {}
-            if self._model:
-                options["model"] = self._model
-            if self._thinking:
-                options["thinking"] = self._thinking
-
-            session_key = (
-                f"agent:{self._agent_id}:{self._session_key}"
-                if self._agent_id
-                else self._session_key
-            )
-            response = await self._gateway.send_request(
-                method="agent",
-                params={
-                    "message": message,
-                    "sessionKey": session_key,
-                    "idempotencyKey": idempotency_key,
-                    **options,
-                },
-                timeout=10.0,  # Initial ack should be quick
-            )
-
-            # Extract runId from acknowledgment
-            payload = response.get("payload", {})
-            run_id = payload.get("runId")
-
-            if not run_id:
-                raise AgentExecutionError("No runId in agent response")
-
-            _LOGGER.debug("Agent run started: %s", run_id)
-
-            # Create run tracker
-            agent_run = AgentRun(run_id)
-            self._agent_runs[run_id] = agent_run
+            agent_run = await self._start_agent_run(message, idempotency_key)
+            run_id = agent_run.run_id
 
             try:
-                # Wait for completion
                 await asyncio.wait_for(
                     agent_run.complete_event.wait(), timeout=self._timeout
                 )
@@ -346,38 +352,10 @@ class OpenClawGatewayClient:
         _LOGGER.debug("Streaming agent request with key: %s", idempotency_key)
 
         try:
-            options: dict[str, Any] = {}
-            if self._model:
-                options["model"] = self._model
-            if self._thinking:
-                options["thinking"] = self._thinking
-
-            session_key = (
-                f"agent:{self._agent_id}:{self._session_key}"
-                if self._agent_id
-                else self._session_key
+            agent_run = await self._start_agent_run(
+                message, idempotency_key, stream=True
             )
-            response = await self._gateway.send_request(
-                method="agent",
-                params={
-                    "message": message,
-                    "sessionKey": session_key,
-                    "idempotencyKey": idempotency_key,
-                    **options,
-                },
-                timeout=10.0,
-            )
-
-            payload = response.get("payload", {})
-            run_id = payload.get("runId")
-
-            if not run_id:
-                raise AgentExecutionError("No runId in agent response")
-
-            _LOGGER.debug("Agent run started: %s", run_id)
-
-            agent_run = AgentRun(run_id, stream=True)
-            self._agent_runs[run_id] = agent_run
+            run_id = agent_run.run_id
 
             try:
                 async for chunk in agent_run.iter_stream(self._timeout):
