@@ -84,18 +84,18 @@ class AgentRun:
         return self._full_text
 
     async def iter_stream(self, timeout: float) -> AsyncIterator[str]:
-        """Yield output chunks until completion or timeout."""
+        """Yield output chunks until completion or timeout.
+
+        The timeout applies per-chunk: each new chunk resets the clock.
+        This prevents long but actively-streaming responses from timing out.
+        """
         if self._stream_queue is None:
             self._stream_queue = asyncio.Queue()
 
-        deadline = time.monotonic() + timeout
         while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise GatewayTimeoutError("Agent response timeout")
             try:
                 chunk = await asyncio.wait_for(
-                    self._stream_queue.get(), timeout=remaining
+                    self._stream_queue.get(), timeout=timeout
                 )
             except asyncio.TimeoutError as err:
                 raise GatewayTimeoutError(
