@@ -25,6 +25,7 @@ sys.modules.setdefault("custom_components.openclaw", ModuleType("custom_componen
 
 _const = _load_module("custom_components.openclaw.const", _BASE / "const.py")
 _exceptions = _load_module("custom_components.openclaw.exceptions", _BASE / "exceptions.py")
+_device_auth = _load_module("custom_components.openclaw.device_auth", _BASE / "device_auth.py")
 _gateway = _load_module("custom_components.openclaw.gateway", _BASE / "gateway.py")
 _gateway_client = _load_module(
     "custom_components.openclaw.gateway_client", _BASE / "gateway_client.py"
@@ -154,6 +155,57 @@ class TestSendAgentRequest:
         params = client._gateway.send_request.call_args.kwargs["params"]  # type: ignore[attr-defined]
         assert params["idempotencyKey"] == "fixed"
         assert "options" not in params
+        assert params["sessionKey"] == "main"
+
+    @pytest.mark.asyncio
+    async def test_agent_id_prefixes_session_key(self) -> None:
+        client = OpenClawGatewayClient(
+            "localhost", 1, None, agent_id="my-agent", session_key="chat"
+        )
+        client._gateway.send_request = AsyncMock(  # type: ignore[attr-defined]
+            return_value={"payload": {"runId": "run-1"}}
+        )
+
+        task = asyncio.create_task(client.send_agent_request("hello"))
+
+        for _ in range(50):
+            if "run-1" in client._agent_runs:
+                break
+            await asyncio.sleep(0)
+        assert "run-1" in client._agent_runs
+
+        client._handle_agent_event(
+            {"payload": {"runId": "run-1", "status": "ok", "summary": "done"}}
+        )
+
+        await task
+
+        params = client._gateway.send_request.call_args.kwargs["params"]  # type: ignore[attr-defined]
+        assert params["sessionKey"] == "agent:my-agent:chat"
+
+    @pytest.mark.asyncio
+    async def test_no_agent_id_keeps_plain_session_key(self) -> None:
+        client = OpenClawGatewayClient("localhost", 1, None, session_key="chat")
+        client._gateway.send_request = AsyncMock(  # type: ignore[attr-defined]
+            return_value={"payload": {"runId": "run-1"}}
+        )
+
+        task = asyncio.create_task(client.send_agent_request("hello"))
+
+        for _ in range(50):
+            if "run-1" in client._agent_runs:
+                break
+            await asyncio.sleep(0)
+        assert "run-1" in client._agent_runs
+
+        client._handle_agent_event(
+            {"payload": {"runId": "run-1", "status": "ok", "summary": "done"}}
+        )
+
+        await task
+
+        params = client._gateway.send_request.call_args.kwargs["params"]  # type: ignore[attr-defined]
+        assert params["sessionKey"] == "chat"
 
     @pytest.mark.asyncio
     async def test_thinking_sent_as_root_param(self) -> None:
