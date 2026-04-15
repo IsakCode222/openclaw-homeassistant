@@ -25,7 +25,8 @@
           "model": "Model override (optional)",
           "thinking": "Thinking mode override (optional)",
           "strip_emojis": "Strip emojis from TTS speech",
-          "tts_max_chars": "TTS max characters (0 = no limit)"
+          "tts_max_chars": "TTS max characters (0 = no limit)",
+          "voice_context": "Tell the agent the user spoke via Assist (shorter replies)"
         }
       },
       "reauth_confirm": {
@@ -68,7 +69,8 @@
           "model": "Model override (optional)",
           "thinking": "Thinking mode override (optional)",
           "strip_emojis": "Strip emojis from TTS speech",
-          "tts_max_chars": "TTS max characters (0 = no limit)"
+          "tts_max_chars": "TTS max characters (0 = no limit)",
+          "voice_context": "Tell the agent the user spoke via Assist (shorter replies)"
         }
       }
     }

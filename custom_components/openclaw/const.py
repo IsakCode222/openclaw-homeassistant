@@ -12,7 +12,15 @@ DEFAULT_MODEL = None
 DEFAULT_THINKING = None
 DEFAULT_STRIP_EMOJIS = True  # Strip emojis from TTS by default
 DEFAULT_TTS_MAX_CHARS = 0  # 0 disables TTS trimming
+DEFAULT_VOICE_CONTEXT = True  # Tell the agent the user spoke via Assist (voice-first)
 DEFAULT_AGENT_ID = None  # Use gateway default agent
+
+# Appended to the user message sent to the agent when voice context is enabled.
+# Keeps replies short for TTS; pair with a voice-oriented agent session if desired.
+DEFAULT_VOICE_CONTEXT_SUFFIX = (
+    "(This message was sent in voice by the user; respond briefly and "
+    "conversationally, suitable for text-to-speech.)"
+)
 
 # Configuration keys
 CONF_HOST = "host"
@@ -26,6 +34,7 @@ CONF_MODEL = "model"
 CONF_THINKING = "thinking"
 CONF_STRIP_EMOJIS = "strip_emojis"
 CONF_TTS_MAX_CHARS = "tts_max_chars"
+CONF_VOICE_CONTEXT = "voice_context"
 # Connection states
 STATE_CONNECTED = "connected"
 STATE_DISCONNECTED = "disconnected"

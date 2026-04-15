@@ -36,6 +36,19 @@ def test_entity_metadata_properties() -> None:
     assert entity.extra_state_attributes["use_ssl"] is True
     assert entity.extra_state_attributes["strip_emojis"] is False
     assert entity.extra_state_attributes["tts_max_chars"] == 123
+    assert entity.extra_state_attributes["voice_context"] is True
+
+
+def test_build_gateway_user_message() -> None:
+    conversation = _load_conversation_module()
+
+    suffix = conversation.DEFAULT_VOICE_CONTEXT_SUFFIX
+    assert conversation.build_gateway_user_message("Hi", {}) == f"Hi\n\n{suffix}"
+    assert conversation.build_gateway_user_message(
+        "Hi", {"voice_context": False}
+    ) == "Hi"
+    suffix = conversation.DEFAULT_VOICE_CONTEXT_SUFFIX
+    assert conversation.build_gateway_user_message(None, {}) == f"\n\n{suffix}"
 
 
 def test_trim_tts_text() -> None:

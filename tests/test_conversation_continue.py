@@ -182,3 +182,40 @@ async def test_error_path_keeps_continue_false() -> None:
     result = await entity._async_handle_message(_make_user_input(), FakeChatLog())
 
     assert getattr(result, "continue_conversation", False) is False
+
+
+async def test_non_streaming_appends_voice_context_by_default() -> None:
+    conv = load_conversation_module(streaming="none")
+    gateway = _make_gateway()
+    seen: dict[str, str] = {}
+
+    async def fake_send(message: str, **_kw) -> str:
+        seen["message"] = message
+        return "OK."
+
+    gateway.send_agent_request = fake_send
+
+    entity = conv.OpenClawConversationEntity(_make_entry(), gateway)
+    await entity._async_handle_message(_make_user_input("turn on lights"), FakeChatLog())
+
+    assert "turn on lights" in seen["message"]
+    assert conv.DEFAULT_VOICE_CONTEXT_SUFFIX in seen["message"]
+
+
+async def test_non_streaming_respects_voice_context_disabled() -> None:
+    conv = load_conversation_module(streaming="none")
+    gateway = _make_gateway()
+    seen: dict[str, str] = {}
+
+    async def fake_send(message: str, **_kw) -> str:
+        seen["message"] = message
+        return "OK."
+
+    gateway.send_agent_request = fake_send
+
+    entry = _make_entry()
+    entry.options = {"voice_context": False}
+    entity = conv.OpenClawConversationEntity(entry, gateway)
+    await entity._async_handle_message(_make_user_input("hello"), FakeChatLog())
+
+    assert seen["message"] == "hello"

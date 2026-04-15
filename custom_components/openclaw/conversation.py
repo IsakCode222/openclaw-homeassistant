@@ -14,8 +14,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
     CONF_STRIP_EMOJIS,
     CONF_TTS_MAX_CHARS,
+    CONF_VOICE_CONTEXT,
     DEFAULT_STRIP_EMOJIS,
     DEFAULT_TTS_MAX_CHARS,
+    DEFAULT_VOICE_CONTEXT,
+    DEFAULT_VOICE_CONTEXT_SUFFIX,
     DOMAIN,
 )
 from .exceptions import (
@@ -54,6 +57,20 @@ def trim_tts_text(text: str, max_chars: int) -> str:
     if max_chars <= 3:
         return text[:max_chars]
     return text[: max_chars - 3].rstrip() + "..."
+
+
+def build_gateway_user_message(
+    user_message: str | None, config: dict[str, Any]
+) -> str:
+    """Augment the user text sent to the agent when voice context is enabled.
+
+    Home Assistant does not expose voice vs typed Assist on ``ConversationInput``;
+    this defaults on because the integration is typically used with voice Assist.
+    """
+    text = "" if user_message is None else user_message
+    if not config.get(CONF_VOICE_CONTEXT, DEFAULT_VOICE_CONTEXT):
+        return text
+    return f"{text}\n\n{DEFAULT_VOICE_CONTEXT_SUFFIX}"
 
 
 def response_expects_followup(text: str) -> bool:
@@ -149,6 +166,7 @@ class OpenClawConversationEntity(conversation.ConversationEntity):
             "thinking": self._gateway_client.thinking,
             "strip_emojis": data.get(CONF_STRIP_EMOJIS, DEFAULT_STRIP_EMOJIS),
             "tts_max_chars": data.get(CONF_TTS_MAX_CHARS, DEFAULT_TTS_MAX_CHARS),
+            "voice_context": data.get(CONF_VOICE_CONTEXT, DEFAULT_VOICE_CONTEXT),
         }
 
     @property
@@ -175,16 +193,18 @@ class OpenClawConversationEntity(conversation.ConversationEntity):
 
         # Extract user message
         user_message = user_input.text
+        config = {**self._config_entry.data, **self._config_entry.options}
+        gateway_message = build_gateway_user_message(user_message, config)
 
         try:
             streaming_result = self._build_streaming_result(
-                user_input, chat_log, user_message
+                user_input, chat_log, gateway_message
             )
             if streaming_result is not None:
                 return streaming_result
 
             response_text = await self._gateway_client.send_agent_request(
-                user_message
+                gateway_message
             )
             intent_response = intent.IntentResponse(language=user_input.language)
             self._finalize_response(
@@ -245,7 +265,7 @@ class OpenClawConversationEntity(conversation.ConversationEntity):
         self,
         user_input: conversation.ConversationInput,
         chat_log: conversation.ChatLog,
-        user_message: str,
+        gateway_message: str,
     ) -> conversation.ConversationResult | None:
         """Build a streaming conversation result when supported."""
         if not self._supports_streaming_result():
@@ -261,7 +281,7 @@ class OpenClawConversationEntity(conversation.ConversationEntity):
         # replacement built by the StreamingConversationResult fallback.
         result_ref: list[conversation.ConversationResult] = [result]
         response_stream = self._stream_response(
-            user_input, chat_log, user_message, intent_response, result_ref
+            user_input, chat_log, gateway_message, intent_response, result_ref
         )
 
         try:
@@ -315,7 +335,7 @@ class OpenClawConversationEntity(conversation.ConversationEntity):
         self,
         user_input: conversation.ConversationInput,
         chat_log: conversation.ChatLog,
-        user_message: str,
+        gateway_message: str,
         intent_response: intent.IntentResponse,
         result_ref: list[conversation.ConversationResult],
     ) -> AsyncIterator[str]:
@@ -324,7 +344,7 @@ class OpenClawConversationEntity(conversation.ConversationEntity):
         had_content = False
         try:
             async for chunk in self._gateway_client.stream_agent_request(
-                user_message
+                gateway_message
             ):
                 if chunk:
                     chunks.append(chunk)

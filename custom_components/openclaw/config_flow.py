@@ -21,6 +21,7 @@ from .const import (
     CONF_THINKING,
     CONF_TTS_MAX_CHARS,
     CONF_USE_SSL,
+    CONF_VOICE_CONTEXT,
     DEFAULT_AGENT_ID,
     DEFAULT_HOST,
     DEFAULT_MODEL,
@@ -31,6 +32,7 @@ from .const import (
     DEFAULT_TTS_MAX_CHARS,
     DEFAULT_TIMEOUT,
     DEFAULT_USE_SSL,
+    DEFAULT_VOICE_CONTEXT,
     DOMAIN,
 )
 from .exceptions import (
@@ -297,6 +299,9 @@ class OpenClawConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_TTS_MAX_CHARS, default=DEFAULT_TTS_MAX_CHARS
                 ): vol.All(int, vol.Range(min=0, max=2000)),
+                vol.Optional(
+                    CONF_VOICE_CONTEXT, default=DEFAULT_VOICE_CONTEXT
+                ): bool,
             }
         )
 
@@ -437,6 +442,9 @@ class OpenClawOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_TTS_MAX_CHARS: user_input.get(
                         CONF_TTS_MAX_CHARS, DEFAULT_TTS_MAX_CHARS
                     ),
+                    CONF_VOICE_CONTEXT: user_input.get(
+                        CONF_VOICE_CONTEXT, DEFAULT_VOICE_CONTEXT
+                    ),
                 }
                 self.hass.config_entries.async_update_entry(
                     self.config_entry,
@@ -491,6 +499,12 @@ class OpenClawOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_TTS_MAX_CHARS, DEFAULT_TTS_MAX_CHARS
                     ),
                 ): vol.All(int, vol.Range(min=0, max=2000)),
+                vol.Optional(
+                    CONF_VOICE_CONTEXT,
+                    default=current.get(
+                        CONF_VOICE_CONTEXT, DEFAULT_VOICE_CONTEXT
+                    ),
+                ): bool,
             }
         )
 
